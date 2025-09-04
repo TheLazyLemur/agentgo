@@ -58,7 +58,7 @@ func callback(
 			}
 		default:
 			fmt.Println()
-			fmt.Println("======UNKOWEN=======")
+			fmt.Println("======UNKNOWN=======")
 			fmt.Println(string(jsonData))
 			fmt.Println("=====================")
 		}

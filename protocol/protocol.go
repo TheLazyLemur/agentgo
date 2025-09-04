@@ -11,14 +11,14 @@ import (
 type AcpConnection struct {
 	stdin    io.WriteCloser
 	stdout   io.ReadCloser
-	sesionID string
+	sessionID string
 }
 
 func OpenAcpStdioConnection(
-	commmand string,
+	command string,
 	args ...string,
 ) *AcpConnection {
-	cmd := exec.Command(commmand, args...)
+	cmd := exec.Command(command, args...)
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -81,7 +81,7 @@ func (acpConn *AcpConnection) InitializeSession() (string, error) {
 			return "", fmt.Errorf("expected sessionID to be type of string: %v", sessionID)
 		}
 
-		acpConn.sesionID = sessionID.(string)
+		acpConn.sessionID = sessionID.(string)
 		return sessionID.(string), nil
 	}
 
@@ -89,7 +89,7 @@ func (acpConn *AcpConnection) InitializeSession() (string, error) {
 }
 
 func (acpConn *AcpConnection) HasInit() bool {
-	return acpConn.sesionID != ""
+	return acpConn.sessionID != ""
 }
 
 func (acpConn *AcpConnection) SendMessage(message string) error {
@@ -98,7 +98,7 @@ func (acpConn *AcpConnection) SendMessage(message string) error {
 		ID:      1,
 		Method:  "session/prompt",
 		Params: SessionPromptParams{
-			SessionID: acpConn.sesionID,
+			SessionID: acpConn.sessionID,
 			Prompt: []Prompt{
 				{Type: "text", Text: message},
 			},
