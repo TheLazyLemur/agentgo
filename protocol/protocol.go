@@ -9,8 +9,8 @@ import (
 )
 
 type AcpConnection struct {
-	stdin    io.WriteCloser
-	stdout   io.ReadCloser
+	stdin     io.WriteCloser
+	stdout    io.ReadCloser
 	sessionID string
 }
 
@@ -143,17 +143,68 @@ func (acpConn *AcpConnection) SendToolResponse(reqID int, optionID string) error
 	return nil
 }
 
-func (acpConn *AcpConnection) StreamResponses(
-	cb func(*AcpConnection, map[string]any) error,
-) error {
+type handler interface {
+	HandlePermissionRequest(
+		acpConn *AcpConnection,
+		raw []byte,
+		req SessionRequestPermissionRequest,
+	) error
+	HandleNotification(raw []byte, req SessionUpdateRequest) error
+}
+
+func (acpConn *AcpConnection) StreamResponses(handlers handler, ch chan int) error {
 	for {
 		response := map[string]any{}
 		if err := json.NewDecoder(acpConn.stdout).Decode(&response); err != nil {
 			return err
 		}
 
-		if err := cb(acpConn, response); err != nil {
+		if err := Callback(handlers, ch)(acpConn, response); err != nil {
 			return err
 		}
+	}
+}
+
+func Callback(
+	handlers handler,
+	ch chan int,
+) func(acpConn *AcpConnection, response map[string]any) error {
+	return func(acpConn *AcpConnection, response map[string]any) error {
+		method, ok := response["method"].(string)
+		if !ok || method == "" {
+			ch <- 0
+			return nil
+		}
+
+		jsonData, err := json.Marshal(response)
+		if err != nil {
+			return err
+		}
+
+		switch method {
+		case "session/update":
+			var req SessionUpdateRequest
+			if err := json.Unmarshal(jsonData, &req); err != nil {
+				return err
+			}
+			if err := handlers.HandleNotification(jsonData, req); err != nil {
+				return err
+			}
+		case "session/request_permission":
+			var req SessionRequestPermissionRequest
+			if err := json.Unmarshal(jsonData, &req); err != nil {
+				return err
+			}
+			if err := handlers.HandlePermissionRequest(acpConn, jsonData, req); err != nil {
+				return err
+			}
+		default:
+			fmt.Println()
+			fmt.Println("======UNKNOWN=======")
+			fmt.Println(string(jsonData))
+			fmt.Println("=====================")
+		}
+
+		return nil
 	}
 }

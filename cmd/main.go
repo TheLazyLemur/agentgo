@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -13,51 +12,6 @@ import (
 	"agentgo/protocol"
 	"agentgo/providers/claude"
 )
-
-func callback(
-	handlers *handlers.Handlers,
-	ch chan int,
-) func(acpConn *protocol.AcpConnection, response map[string]any) error {
-	return func(acpConn *protocol.AcpConnection, response map[string]any) error {
-		method, ok := response["method"].(string)
-		if !ok || method == "" {
-			// fmt.Println(response)
-			ch <- 0
-			return nil
-		}
-
-		jsonData, err := json.Marshal(response)
-		if err != nil {
-			return err
-		}
-
-		switch method {
-		case "session/update":
-			var req protocol.SessionUpdateRequest
-			if err := json.Unmarshal(jsonData, &req); err != nil {
-				return err
-			}
-			if err := handlers.HandleNotification(jsonData, req); err != nil {
-				return err
-			}
-		case "session/request_permission":
-			var req protocol.SessionRequestPermissionRequest
-			if err := json.Unmarshal(jsonData, &req); err != nil {
-				return err
-			}
-			if err := handlers.HandlePermissionRequest(acpConn, jsonData, req); err != nil {
-				return err
-			}
-		default:
-			fmt.Println()
-			fmt.Println("======UNKNOWN=======")
-			fmt.Println(string(jsonData))
-			fmt.Println("=====================")
-		}
-
-		return nil
-	}
-}
 
 func main() {
 	ch := make(chan int)
@@ -72,7 +26,7 @@ func main() {
 	handlers := handlers.NewHandlers(claude, claude)
 
 	go func() {
-		if err := acpConn.StreamResponses(callback(handlers, ch)); err != nil {
+		if err := acpConn.StreamResponses(handlers, ch); err != nil {
 			panic(err)
 		}
 	}()
