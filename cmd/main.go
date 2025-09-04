@@ -33,10 +33,6 @@ func callback(
 
 		switch method {
 		case "session/update":
-			// fmt.Println()
-			// fmt.Println("======SESSION/UPDATE=======")
-			// fmt.Println(string(jsonData))
-			// fmt.Println("=====================")
 			var req protocol.SessionUpdateRequest
 			if err := json.Unmarshal(jsonData, &req); err != nil {
 				return err
@@ -45,10 +41,6 @@ func callback(
 				return err
 			}
 		case "session/request_permission":
-			// fmt.Println()
-			// fmt.Println("======SESSION/REQUEST_PERMISSION=======")
-			// fmt.Println(string(jsonData))
-			// fmt.Println("=====================")
 			var req protocol.SessionRequestPermissionRequest
 			if err := json.Unmarshal(jsonData, &req); err != nil {
 				return err
