@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"agentgo/internal/handlers"
 	"agentgo/protocol"
 	"agentgo/providers/claude"
 )
@@ -38,7 +37,7 @@ func NewCoordinator() (*Coordinator, error) {
 	}
 
 	claude := &claude.Claude{}
-	appHandlers := handlers.NewHandlers(claude, claude)
+	appHandlers := NewHandlers(claude, claude)
 
 	lifecycle := NewLifecycleManager(connection)
 

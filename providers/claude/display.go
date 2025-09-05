@@ -115,3 +115,76 @@ func formatParamsForDisplay(rawParams map[string]any) map[string]any {
 	}
 	return enhanced
 }
+
+// DisplayNotification shows a formatted notification message
+func DisplayNotification(data *NotificationData) error {
+	if data == nil {
+		return nil
+	}
+
+	switch data.Type {
+	case NotificationAgentChunk:
+		fmt.Printf("\033[1;34m🤖 Assistant:\033[0m %s", data.Text)
+	case NotificationUser:
+		fmt.Printf("\033[1;32m👤 You:\033[0m %s", data.Text)
+	case NotificationGeneric:
+		if data.ContentType == "text" {
+			fmt.Printf("\033[1;37m💬 Message:\033[0m %s", data.Text)
+		} else {
+			fmt.Printf("\033[1;33m📄 %s:\033[0m %s", data.UpdateType, data.Text)
+		}
+	}
+
+	fmt.Println()
+	return nil
+}
+
+// DisplayTodoList shows a formatted todo list
+func DisplayTodoList(todoData *TodoListData) error {
+	if todoData == nil {
+		return nil
+	}
+
+	fmt.Println("\n\033[1;35m📋 Todo List Update:\033[0m")
+	fmt.Println("\033[1;37m" + strings.Repeat("─", 50) + "\033[0m")
+
+	for i, entry := range todoData.Entries {
+		statusIcon, statusColor := formatTodoStatus(entry.Status)
+		priorityIndicator := formatTodoPriority(entry.Priority)
+
+		fmt.Printf("%s%d. %s %s%s%s\033[0m\n",
+			statusColor,
+			i+1,
+			statusIcon,
+			entry.Content,
+			priorityIndicator,
+			"")
+	}
+
+	fmt.Println("\033[1;37m" + strings.Repeat("─", 50) + "\033[0m\n")
+	return nil
+}
+
+func formatTodoStatus(status string) (string, string) {
+	switch status {
+	case "completed":
+		return "✅", "\033[1;32m"
+	case "in_progress":
+		return "🔄", "\033[1;33m"
+	case "pending":
+		return "⏳", "\033[1;36m"
+	default:
+		return "❓", "\033[1;37m"
+	}
+}
+
+func formatTodoPriority(priority string) string {
+	switch priority {
+	case "high":
+		return " \033[1;31m[HIGH]\033[0m"
+	case "low":
+		return " \033[1;34m[LOW]\033[0m"
+	default:
+		return ""
+	}
+}

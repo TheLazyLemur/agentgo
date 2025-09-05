@@ -19,7 +19,7 @@ type LifecycleManager struct {
 func NewLifecycleManager(connection *protocol.AcpConnection) *LifecycleManager {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	
+
 	return &LifecycleManager{
 		connection: connection,
 		sigChan:    sigChan,
