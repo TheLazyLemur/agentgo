@@ -48,7 +48,7 @@ func OpenAcpRecordingConnection(command, recordingFile string, args ...string) (
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Add recorder
 	recorder, err := NewFileRecorder(recordingFile)
 	if err != nil {
@@ -57,6 +57,15 @@ func OpenAcpRecordingConnection(command, recordingFile string, args ...string) (
 	}
 	conn.recorder = recorder
 	return conn, nil
+}
+
+// OpenAcpReplayConnection creates a connection that replays recorded messages
+func OpenAcpReplayConnection(recordingFile string) (*AcpConnection, error) {
+	provider, err := NewReplayIOProvider(recordingFile)
+	if err != nil {
+		return nil, err
+	}
+	return OpenAcpConnection(provider)
 }
 
 func (acpConn *AcpConnection) InitializeSession() (string, error) {
@@ -104,28 +113,24 @@ func (acpConn *AcpConnection) InitializeSession() (string, error) {
 	return "", fmt.Errorf("")
 }
 
-func (acpConn *AcpConnection) HasInit() bool {
-	return acpConn.sessionID != ""
-}
-
 // Close closes the connection and cleans up resources
 func (acpConn *AcpConnection) Close() error {
 	var err error
-	
+
 	// Close recorder first to save recording
 	if acpConn.recorder != nil {
 		if recErr := acpConn.recorder.Close(); recErr != nil {
 			err = recErr
 		}
 	}
-	
+
 	// Close provider
 	if acpConn.provider != nil {
 		if provErr := acpConn.provider.Close(); provErr != nil && err == nil {
 			err = provErr
 		}
 	}
-	
+
 	return err
 }
 
@@ -190,10 +195,12 @@ type handler interface {
 }
 
 func (acpConn *AcpConnection) StreamResponses(handlers handler, ch chan int) error {
+	decoder := json.NewDecoder(acpConn.reader)
+	
 	for {
 		response := map[string]any{}
-		if err := json.NewDecoder(acpConn.reader).Decode(&response); err != nil {
-			return err
+		if err := decoder.Decode(&response); err != nil {
+			return fmt.Errorf("JSON decode error in StreamResponses: %v", err)
 		}
 
 		// Record the response if recorder is present

@@ -1,7 +1,11 @@
 package protocol
 
 import (
+	"bufio"
+	"bytes"
+	"encoding/json"
 	"io"
+	"os"
 	"os/exec"
 )
 
@@ -73,4 +77,69 @@ func (b *BinaryIOProvider) Close() error {
 		return b.cmd.Wait()
 	}
 	return nil
+}
+
+// ReplayIOProvider streams recorded messages for testing
+type ReplayIOProvider struct {
+	reader *bytes.Reader
+}
+
+// NewReplayIOProvider creates a replay provider from a JSONL recording file
+func NewReplayIOProvider(recordingFile string) (*ReplayIOProvider, error) {
+	file, err := os.Open(recordingFile)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var buffer bytes.Buffer
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal(line, &raw); err != nil {
+			continue
+		}
+		
+		if dataField, exists := raw["data"]; exists {
+			buffer.Write(dataField)
+			buffer.WriteByte('\n')
+		}
+	}
+
+	return &ReplayIOProvider{
+		reader: bytes.NewReader(buffer.Bytes()),
+	}, scanner.Err()
+}
+
+// Start is a no-op for replay
+func (r *ReplayIOProvider) Start() error {
+	return nil
+}
+
+// GetReader returns the message stream
+func (r *ReplayIOProvider) GetReader() io.Reader {
+	return r.reader
+}
+
+// GetWriter returns a no-op writer
+func (r *ReplayIOProvider) GetWriter() io.Writer {
+	return &noopWriter{}
+}
+
+// Close is a no-op for replay
+func (r *ReplayIOProvider) Close() error {
+	return nil
+}
+
+// noopWriter discards all writes
+type noopWriter struct{}
+
+func (n *noopWriter) Write(p []byte) (int, error) {
+	return len(p), nil
 }

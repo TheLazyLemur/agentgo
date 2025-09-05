@@ -19,26 +19,36 @@ import (
 func main() {
 	// Parse command line flags
 	recordFile := flag.String("record", "", "Record conversation to file")
+	replayFile := flag.String("replay", "", "Replay conversation from file")
 	flag.Parse()
 
 	ch := make(chan int)
 
-	// Create ACP connection with or without recording
+	// Create ACP connection: replay, record, or normal
 	var acpConn *protocol.AcpConnection
 	var err error
 
-	if *recordFile != "" {
+	switch {
+	case *replayFile != "":
+		fmt.Printf("Replaying conversation from: %s\n", *replayFile)
+		acpConn, err = protocol.OpenAcpReplayConnection(*replayFile)
+	case *recordFile != "":
 		fmt.Printf("Recording conversation to: %s\n", *recordFile)
 		acpConn, err = protocol.OpenAcpRecordingConnection("claude-code-acp", *recordFile)
+	default:
+		acpConn = protocol.OpenAcpStdioConnection("claude-code-acp")
+	}
+	
+	if err != nil {
+		panic(err)
+	}
+	
+	// Initialize session for non-replay connections
+	if *replayFile == "" {
+		_, err = acpConn.InitializeSession()
 		if err != nil {
 			panic(err)
 		}
-	} else {
-		acpConn = protocol.OpenAcpStdioConnection("claude-code-acp")
-	}
-	_, err = acpConn.InitializeSession()
-	if err != nil {
-		panic(err)
 	}
 
 	claude := &claude.Claude{}
@@ -65,9 +75,6 @@ func main() {
 	}()
 
 	for {
-		if acpConn.HasInit() == false {
-			continue
-		}
 		time.Sleep(time.Second * 5)
 		reader := bufio.NewReader(os.Stdin)
 
