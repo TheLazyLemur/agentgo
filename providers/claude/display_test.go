@@ -10,7 +10,7 @@ func TestDisplayToolRequest(t *testing.T) {
 	toolType := ToolBash
 	toolID := "test-tool-123"
 	params := map[string]any{
-		"💻 Command": "ls -la",
+		"💻 Command":  "ls -la",
 		"old_string": "old content",
 		"new_string": "new content",
 	}
@@ -20,8 +20,6 @@ func TestDisplayToolRequest(t *testing.T) {
 		{OptionID: "reject", Name: "Reject"},
 	}
 
-	// This test just verifies the function doesn't crash
-	// In a real scenario, we might capture stdout to verify output
 	err := DisplayToolRequest(toolType, toolID, params, options)
 	if err != nil {
 		t.Errorf("DisplayToolRequest() returned error: %v", err)
@@ -107,7 +105,7 @@ func TestFormatParamsForDisplay(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := formatParamsForDisplay(tt.input)
-			
+
 			for key, expectedValue := range tt.expected {
 				if actualValue, ok := result[key]; !ok {
 					t.Errorf("formatParamsForDisplay() missing key %q", key)

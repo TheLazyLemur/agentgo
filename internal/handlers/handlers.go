@@ -22,19 +22,9 @@ func (h *Handlers) HandlePermissionRequest(
 	raw []byte,
 	req protocol.SessionRequestPermissionRequest,
 ) error {
-	// fmt.Println()
-	// fmt.Println("======SESSION/REQUEST_PERMISSION=======")
-	// fmt.Println(string(raw))
-	// fmt.Println("=====================")
-
 	return h.toolPrompt.HandlePermissionRequest(acpConn, raw, req)
 }
 
 func (h *Handlers) HandleNotification(raw []byte, req protocol.SessionUpdateRequest) error {
-	// fmt.Println()
-	// fmt.Println("======SESSION/UPDATE=======")
-	// fmt.Println(string(raw))
-	// fmt.Println("=====================")
-
 	return h.notifier.HandleNotification(raw, req)
 }

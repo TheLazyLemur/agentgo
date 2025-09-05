@@ -95,3 +95,4 @@ func TestDetectToolType(t *testing.T) {
 		})
 	}
 }
+

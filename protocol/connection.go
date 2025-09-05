@@ -42,17 +42,19 @@ func OpenAcpStdioConnection(
 }
 
 // OpenAcpRecordingConnection creates a new ACP connection with recording enabled
-func OpenAcpRecordingConnection(command, recordingFile string, args ...string) (*AcpConnection, error) {
+func OpenAcpRecordingConnection(
+	command, recordingFile string,
+	args ...string,
+) (*AcpConnection, error) {
 	provider := NewBinaryIOProvider(command, args...)
 	conn, err := OpenAcpConnection(provider)
 	if err != nil {
 		return nil, err
 	}
 
-	// Add recorder
 	recorder, err := NewFileRecorder(recordingFile)
 	if err != nil {
-		conn.Close() // Clean up the connection
+		conn.Close()
 		return nil, err
 	}
 	conn.recorder = recorder
@@ -118,14 +120,12 @@ func (acpConn *AcpConnection) InitializeSession() (string, error) {
 func (acpConn *AcpConnection) Close() error {
 	var err error
 
-	// Close recorder first to save recording
 	if acpConn.recorder != nil {
 		if recErr := acpConn.recorder.Close(); recErr != nil {
 			err = recErr
 		}
 	}
 
-	// Close provider
 	if acpConn.provider != nil {
 		if provErr := acpConn.provider.Close(); provErr != nil && err == nil {
 			err = provErr

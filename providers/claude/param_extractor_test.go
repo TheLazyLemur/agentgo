@@ -80,10 +80,10 @@ func TestExtractToolParams(t *testing.T) {
 			}`,
 			expected: map[string]any{
 				"file_path": "/path/to/file.txt",
-				"edits": []interface{}{
-					map[string]interface{}{"old_string": "old1", "new_string": "new1"},
-					map[string]interface{}{"old_string": "old2", "new_string": "new2"},
-					map[string]interface{}{"old_string": "old3", "new_string": "new3"},
+				"edits": []any{
+					map[string]any{"old_string": "old1", "new_string": "new1"},
+					map[string]any{"old_string": "old2", "new_string": "new2"},
+					map[string]any{"old_string": "old3", "new_string": "new3"},
 				},
 			},
 		},
@@ -93,18 +93,16 @@ func TestExtractToolParams(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			raw := json.RawMessage(tt.input)
 			result := ExtractToolParams(raw)
-			
-			// Check that we have the expected keys
+
 			for key := range tt.expected {
 				if _, ok := result[key]; !ok {
 					t.Errorf("ExtractToolParams() missing key %q", key)
 				}
 			}
-			
-			// For multi-edit case, just verify the structure exists
+
 			if tt.name == "multi-edit" {
 				if edits, ok := result["edits"]; ok {
-					if editsSlice, ok := edits.([]interface{}); ok {
+					if editsSlice, ok := edits.([]any); ok {
 						if len(editsSlice) != 3 {
 							t.Errorf("Expected 3 edits, got %d", len(editsSlice))
 						}
@@ -113,7 +111,6 @@ func TestExtractToolParams(t *testing.T) {
 					}
 				}
 			} else {
-				// For other tests, do exact comparison
 				for key, expectedValue := range tt.expected {
 					if actualValue, ok := result[key]; !ok {
 						t.Errorf("ExtractToolParams() missing key %q", key)
@@ -140,8 +137,8 @@ func TestExtractRawParams(t *testing.T) {
 	}`
 
 	raw := json.RawMessage(input)
-	result := ExtractRawParams(raw)
-	
+	result := ExtractToolParams(raw)
+
 	expected := map[string]any{
 		"file_path": "/path/to/file.txt",
 		"command":   "ls -la",
