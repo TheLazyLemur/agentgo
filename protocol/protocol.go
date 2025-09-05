@@ -12,6 +12,7 @@ type AcpConnection struct {
 	reader    io.Reader
 	writer    io.Writer
 	sessionID string
+	recorder  ConversationRecorder
 }
 
 // OpenAcpConnection creates a new ACP connection with the given IO provider
@@ -38,6 +39,24 @@ func OpenAcpStdioConnection(
 		panic(err)
 	}
 	return conn
+}
+
+// OpenAcpRecordingConnection creates a new ACP connection with recording enabled
+func OpenAcpRecordingConnection(command, recordingFile string, args ...string) (*AcpConnection, error) {
+	provider := NewBinaryIOProvider(command, args...)
+	conn, err := OpenAcpConnection(provider)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Add recorder
+	recorder, err := NewFileRecorder(recordingFile)
+	if err != nil {
+		conn.Close() // Clean up the connection
+		return nil, err
+	}
+	conn.recorder = recorder
+	return conn, nil
 }
 
 func (acpConn *AcpConnection) InitializeSession() (string, error) {
@@ -91,10 +110,23 @@ func (acpConn *AcpConnection) HasInit() bool {
 
 // Close closes the connection and cleans up resources
 func (acpConn *AcpConnection) Close() error {
-	if acpConn.provider != nil {
-		return acpConn.provider.Close()
+	var err error
+	
+	// Close recorder first to save recording
+	if acpConn.recorder != nil {
+		if recErr := acpConn.recorder.Close(); recErr != nil {
+			err = recErr
+		}
 	}
-	return nil
+	
+	// Close provider
+	if acpConn.provider != nil {
+		if provErr := acpConn.provider.Close(); provErr != nil && err == nil {
+			err = provErr
+		}
+	}
+	
+	return err
 }
 
 func (acpConn *AcpConnection) SendMessage(message string) error {
@@ -162,6 +194,13 @@ func (acpConn *AcpConnection) StreamResponses(handlers handler, ch chan int) err
 		response := map[string]any{}
 		if err := json.NewDecoder(acpConn.reader).Decode(&response); err != nil {
 			return err
+		}
+
+		// Record the response if recorder is present
+		if acpConn.recorder != nil {
+			if err := acpConn.recorder.RecordMessage(response); err != nil {
+				return fmt.Errorf("failed to record message: %v", err)
+			}
 		}
 
 		if err := Callback(handlers, ch)(acpConn, response); err != nil {
