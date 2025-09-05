@@ -23,7 +23,7 @@ func TestExtractToolParams(t *testing.T) {
 				}
 			}`,
 			expected: map[string]any{
-				"💻 Command": "ls -la /home",
+				"command": "ls -la /home",
 			},
 		},
 		{
@@ -39,8 +39,8 @@ func TestExtractToolParams(t *testing.T) {
 				}
 			}`,
 			expected: map[string]any{
-				"📁 File":    "/path/to/file.txt",
-				"📝 Content": "Hello world",
+				"file_path": "/path/to/file.txt",
+				"content":   "Hello world",
 			},
 		},
 		{
@@ -57,7 +57,7 @@ func TestExtractToolParams(t *testing.T) {
 				}
 			}`,
 			expected: map[string]any{
-				"📁 File":    "/path/to/file.txt",
+				"file_path":  "/path/to/file.txt",
 				"old_string": "old content",
 				"new_string": "new content",
 			},
@@ -79,8 +79,12 @@ func TestExtractToolParams(t *testing.T) {
 				}
 			}`,
 			expected: map[string]any{
-				"📁 File":   "/path/to/file.txt",
-				"📝 Edits":  "3 edit(s)",
+				"file_path": "/path/to/file.txt",
+				"edits": []interface{}{
+					map[string]interface{}{"old_string": "old1", "new_string": "new1"},
+					map[string]interface{}{"old_string": "old2", "new_string": "new2"},
+					map[string]interface{}{"old_string": "old3", "new_string": "new3"},
+				},
 			},
 		},
 	}
@@ -90,11 +94,32 @@ func TestExtractToolParams(t *testing.T) {
 			raw := json.RawMessage(tt.input)
 			result := ExtractToolParams(raw)
 			
-			for key, expectedValue := range tt.expected {
-				if actualValue, ok := result[key]; !ok {
+			// Check that we have the expected keys
+			for key := range tt.expected {
+				if _, ok := result[key]; !ok {
 					t.Errorf("ExtractToolParams() missing key %q", key)
-				} else if actualValue != expectedValue {
-					t.Errorf("ExtractToolParams()[%q] = %v, expected %v", key, actualValue, expectedValue)
+				}
+			}
+			
+			// For multi-edit case, just verify the structure exists
+			if tt.name == "multi-edit" {
+				if edits, ok := result["edits"]; ok {
+					if editsSlice, ok := edits.([]interface{}); ok {
+						if len(editsSlice) != 3 {
+							t.Errorf("Expected 3 edits, got %d", len(editsSlice))
+						}
+					} else {
+						t.Errorf("Expected edits to be []interface{}, got %T", edits)
+					}
+				}
+			} else {
+				// For other tests, do exact comparison
+				for key, expectedValue := range tt.expected {
+					if actualValue, ok := result[key]; !ok {
+						t.Errorf("ExtractToolParams() missing key %q", key)
+					} else if actualValue != expectedValue {
+						t.Errorf("ExtractToolParams()[%q] = %v, expected %v", key, actualValue, expectedValue)
+					}
 				}
 			}
 		})

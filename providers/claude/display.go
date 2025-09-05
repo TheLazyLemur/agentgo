@@ -8,7 +8,10 @@ import (
 )
 
 // DisplayToolRequest shows a formatted tool permission request to the user
-func DisplayToolRequest(toolType ToolType, toolID string, params map[string]any, options []protocol.PermissionOption) error {
+func DisplayToolRequest(toolType ToolType, toolID string, rawParams map[string]any, options []protocol.PermissionOption) error {
+	// Format raw parameters for Claude's distinctive display
+	params := formatParamsForDisplay(rawParams)
+	
 	// Enhanced tool output formatting
 	fmt.Printf("\n\033[1;36m╭─ Tool Request ─────────────────────────────────╮\033[0m\n")
 	fmt.Printf("\033[1;36m│\033[0m \033[1;33m🔧 %s\033[0m\n", toolType)
@@ -71,4 +74,44 @@ func PromptUserChoice(numOptions int) (int, error) {
 func ShowUserSelection(selectedOption string) error {
 	fmt.Printf("\033[1;32m✓ Selected:\033[0m %s\n\n", selectedOption)
 	return nil
+}
+
+// formatParamsForDisplay formats raw parameters for Claude's distinctive UI display
+func formatParamsForDisplay(rawParams map[string]any) map[string]any {
+	enhanced := make(map[string]any)
+	for key, value := range rawParams {
+		switch key {
+		case "file_path":
+			if str, ok := value.(string); ok {
+				enhanced["📁 File"] = str
+			}
+		case "command":
+			if str, ok := value.(string); ok {
+				enhanced["💻 Command"] = str
+			}
+		case "content":
+			if str, ok := value.(string); ok {
+				if len(str) > 200 {
+					enhanced["📝 Content"] = str[:200] + "..."
+				} else {
+					enhanced["📝 Content"] = str
+				}
+			}
+		case "old_string", "new_string":
+			if str, ok := value.(string); ok {
+				if len(str) > 100 {
+					enhanced[key] = str[:100] + "..."
+				} else {
+					enhanced[key] = str
+				}
+			}
+		case "edits":
+			if edits, ok := value.([]any); ok {
+				enhanced["📝 Edits"] = fmt.Sprintf("%d edit(s)", len(edits))
+			}
+		default:
+			enhanced[key] = value
+		}
+	}
+	return enhanced
 }
