@@ -5,42 +5,39 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 )
 
 type AcpConnection struct {
-	stdin     io.WriteCloser
-	stdout    io.ReadCloser
+	provider  IOProvider
+	reader    io.Reader
+	writer    io.Writer
 	sessionID string
 }
 
+// OpenAcpConnection creates a new ACP connection with the given IO provider
+func OpenAcpConnection(provider IOProvider) (*AcpConnection, error) {
+	if err := provider.Start(); err != nil {
+		return nil, err
+	}
+
+	return &AcpConnection{
+		provider: provider,
+		reader:   provider.GetReader(),
+		writer:   provider.GetWriter(),
+	}, nil
+}
+
+// OpenAcpStdioConnection creates a new ACP connection using binary execution (backward compatible)
 func OpenAcpStdioConnection(
 	command string,
 	args ...string,
 ) *AcpConnection {
-	cmd := exec.Command(command, args...)
-
-	stdin, err := cmd.StdinPipe()
+	provider := NewBinaryIOProvider(command, args...)
+	conn, err := OpenAcpConnection(provider)
 	if err != nil {
-		panic("failed to create stdin pipe")
+		panic(err)
 	}
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		stdin.Close()
-		panic("failed to create stdout pipe")
-	}
-
-	if err := cmd.Start(); err != nil {
-		stdin.Close()
-		stdout.Close()
-		panic("failed to start gemini process")
-	}
-
-	return &AcpConnection{
-		stdin:  stdin,
-		stdout: stdout,
-	}
+	return conn
 }
 
 func (acpConn *AcpConnection) InitializeSession() (string, error) {
@@ -60,13 +57,13 @@ func (acpConn *AcpConnection) InitializeSession() (string, error) {
 		return "", fmt.Errorf("failed to encode request to gemini: %v", err)
 	}
 
-	_, err = acpConn.stdin.Write(append(data, '\n'))
+	_, err = acpConn.writer.Write(append(data, '\n'))
 	if err != nil {
 		return "", fmt.Errorf("failed to write request to gemini: %v", err)
 	}
 
 	response := map[string]any{}
-	if err := json.NewDecoder(acpConn.stdout).Decode(&response); err != nil {
+	if err := json.NewDecoder(acpConn.reader).Decode(&response); err != nil {
 		return "", fmt.Errorf("failed to decode response from gemini: %v", err)
 	}
 
@@ -92,6 +89,14 @@ func (acpConn *AcpConnection) HasInit() bool {
 	return acpConn.sessionID != ""
 }
 
+// Close closes the connection and cleans up resources
+func (acpConn *AcpConnection) Close() error {
+	if acpConn.provider != nil {
+		return acpConn.provider.Close()
+	}
+	return nil
+}
+
 func (acpConn *AcpConnection) SendMessage(message string) error {
 	promptReq := SessionPromptRequest{
 		JSONRPC: "2.0",
@@ -110,7 +115,7 @@ func (acpConn *AcpConnection) SendMessage(message string) error {
 		return err
 	}
 
-	_, err = acpConn.stdin.Write(append(data, '\n'))
+	_, err = acpConn.writer.Write(append(data, '\n'))
 	if err != nil {
 		return err
 	}
@@ -135,7 +140,7 @@ func (acpConn *AcpConnection) SendToolResponse(reqID int, optionID string) error
 		return err
 	}
 
-	_, err = acpConn.stdin.Write(append(data, '\n'))
+	_, err = acpConn.writer.Write(append(data, '\n'))
 	if err != nil {
 		return err
 	}
@@ -155,7 +160,7 @@ type handler interface {
 func (acpConn *AcpConnection) StreamResponses(handlers handler, ch chan int) error {
 	for {
 		response := map[string]any{}
-		if err := json.NewDecoder(acpConn.stdout).Decode(&response); err != nil {
+		if err := json.NewDecoder(acpConn.reader).Decode(&response); err != nil {
 			return err
 		}
 
@@ -170,6 +175,8 @@ func Callback(
 	ch chan int,
 ) func(acpConn *AcpConnection, response map[string]any) error {
 	return func(acpConn *AcpConnection, response map[string]any) error {
+		// For recording, I think we should add a setting to the acpConnection to record request to file
+		// This can then later be used for replays/
 		method, ok := response["method"].(string)
 		if !ok || method == "" {
 			ch <- 0
